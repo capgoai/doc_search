@@ -1,7 +1,9 @@
 import os
 import sqlite3
-from config import db_path
+from config import db_path, model_name
+from sentence_transformers import SentenceTransformer
 
+SentenceTransformer(model_name)
 # Desc: Create and initialize the database
 
 if os.path.exists(db_path):
