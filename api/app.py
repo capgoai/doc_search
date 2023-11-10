@@ -158,6 +158,8 @@ async def chat_with_pdf(
     else:
         if len(answer_sources) == 0:
             raise HTTPException(status_code=404, detail="No answer found")
-        answer, source = answer_sources[0]
-        return_content = f"{answer}\n source: {source}"
+        logger.info(answer_sources)
+        answer, sources = answer_sources
+        source = '\n   '.join([f"{i}. {s}" for i, s in enumerate(sources, start=1)])
+        return_content = f"{answer}\n\n sources: {source}"
         return ChatResponse(content=return_content)
