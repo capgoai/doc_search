@@ -9,7 +9,7 @@ db_path: pathlib.Path = data_root_path / db_name
 data_file_name: str = "data.txt"
 index_file_name: str = "index.faiss"
 
-model_name: str = 'llmrails/ember-v1' #"intfloat/multilingual-e5-small"
+model_name: str = "intfloat/multilingual-e5-small"  # "llmrails/ember-v1"
 
 
 # to save faiss
