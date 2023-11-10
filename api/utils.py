@@ -40,8 +40,6 @@ def get_prompt(context: str, query_str: str) -> str:
 def parse_ai_answer(answer: str) -> [(int, str)]:
     chunk_answers = []
     try:
-        print(answer)
-        print(type(answer))
         llm_responses = json.loads(answer)
         assert isinstance(llm_responses, list), "llm response is not a list"
         for llm_response in llm_responses:
@@ -63,6 +61,7 @@ def process_doc(doc_source: DocSource, data: bytes) -> List[str]:
 
     doc_source.save_data("\n".join(chunks))
     return chunks
+
 
 def create_store(doc_source: DocSource, ai: AI, chunks: List[str]) -> None:
     embeddings = [ai.encode(chunk) for chunk in chunks]
@@ -88,6 +87,7 @@ def query_item(doc_source: DocSource, ai: AI, query: str) -> [(str, str)]:
     ]
     chunks = doc_source.read_data().split("\n")
     topk_content = [f"{{chunk_id:{i};content:{chunks[i]}}}" for i in topk]
+    logger.info(topk_content)
 
     context = "".join(topk_content)
     ai_answer = ai.ask1(get_prompt(context, query))
