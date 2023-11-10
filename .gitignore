@@ -1,0 +1,8 @@
+venv
+.ipynb_*
+*.ipynb
+.DS_Store
+data/ch_*
+data/*.db
+*.db
+api_test2.py
