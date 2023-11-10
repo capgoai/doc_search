@@ -4,6 +4,7 @@ from sentence_transformers import SentenceTransformer
 from typing import Protocol
 import numpy.typing as npt
 import numpy as np
+import config
 
 
 
@@ -17,7 +18,7 @@ class AI:
         self.client: OpenAI = OpenAI(
             api_key=os.environ["OPENAI_API_KEY"],
         )
-        self.embedder: EmbeddingMaker = SentenceTransformer("intfloat/multilingual-e5-small")
+        self.embedder: EmbeddingMaker = SentenceTransformer(config.model_name)
       
     def encode(self, text: str) -> npt.NDArray[np.float32]:
         return self.embedder.encode(text)

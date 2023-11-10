@@ -1,4 +1,5 @@
 import io
+import re
 import faiss
 import logging
 import json
@@ -10,7 +11,8 @@ from config import max_characters, k, threshold
 from typing import Protocol, List
 from .models import DocSource
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
+logging.basicConfig(level=logging.INFO)
 
 
 class AI(Protocol):
@@ -43,9 +45,24 @@ def parse_ai_answer(answer: str) -> [(int, str)]:
         llm_responses = json.loads(answer)
         assert isinstance(llm_responses, list), "llm response is not a list"
         for llm_response in llm_responses:
-            chunk_answers.append((llm_response["chunk_id"], llm_response["response"]))
+            c_id = llm_response["chunk_id"]
+            if isinstance(c_id, int):
+                c_id_int = c_id
+            elif isinstance(c_id, str):
+                try:
+                    c_id_int = int(c_id)
+                except Exception as e:
+                    all_nums = re.findall(r'\d+', c_id)[-1]
+                    if len(all_nums) > 0:
+                        c_id_int = int(all_nums[-1])
+                    else:
+                        raise ValueError(f"chunk_id does not contain number: {c_id}")
+            else:
+                raise ValueError(f"chunk_id is not int or str: {c_id}")
+            chunk_answers.append((c_id_int, llm_response["response"]))
     except Exception as e:
         logger.exception("failed to parse llm result")
+        raise Exception("failed to parse llm result", e)
 
     logger.info(chunk_answers)
     return chunk_answers
@@ -53,8 +70,12 @@ def parse_ai_answer(answer: str) -> [(int, str)]:
 
 def process_doc(doc_source: DocSource, data: bytes) -> List[str]:
     reader = PdfReader(io.BytesIO(data))
-    page_texts = [page.extract_text() for page in reader.pages]
-    full_text = "".join(page_texts)
+    def remove_breaks(text: str) -> str:
+        # replace \n and \r to spaces and longer spaces to single space
+        return re.sub(r"\s+", " ", text.replace("\r", " "))
+
+    page_texts = [remove_breaks(page.extract_text()) for page in reader.pages]
+    full_text = " ".join(page_texts)
 
     splitter = CharacterTextSplitter()
     chunks = splitter.chunks(full_text, max_characters)
@@ -66,6 +87,8 @@ def process_doc(doc_source: DocSource, data: bytes) -> List[str]:
 def create_store(doc_source: DocSource, ai: AI, chunks: List[str]) -> None:
     embeddings = [ai.encode(chunk) for chunk in chunks]
     index = faiss.IndexFlatL2(len(embeddings[0]))
+    faiss.normalize_L2(np.array(embeddings))
+
     index.add(np.array(embeddings))
     buffer = io.BytesIO()
     writer = faiss.PyCallbackIOWriter(buffer.write)
@@ -79,6 +102,7 @@ def query_item(doc_source: DocSource, ai: AI, query: str) -> [(str, str)]:
     reader = faiss.PyCallbackIOReader(io.BytesIO(buffer).read)
     index = faiss.read_index(reader)
     query_embedding = ai.encode(query)
+    faiss.normalize_L2(np.array([query_embedding]))
     distances, anns = index.search(np.array([query_embedding]), k=k)
     topk = [
         chunk_id
@@ -86,8 +110,8 @@ def query_item(doc_source: DocSource, ai: AI, query: str) -> [(str, str)]:
         if score <= threshold
     ]
     chunks = doc_source.read_data().split("\n")
-    topk_content = [f"{{chunk_id:{i};content:{chunks[i]}}}" for i in topk]
-    logger.info(topk_content)
+    topk_content = [f"{{chunk_id:\"{i}\";content:\"{chunks[i]}\"}}" for i in topk]
+    logger.info("Top K contents: " + "\n  ".join(topk_content))
 
     context = "".join(topk_content)
     ai_answer = ai.ask1(get_prompt(context, query))

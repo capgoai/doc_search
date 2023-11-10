@@ -12,6 +12,8 @@ from . import models, utils
 from .ai import AI
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 
 ai = AI()
@@ -136,6 +138,11 @@ async def chat_with_pdf(
     doc = models.Doc.get_by_doc_id(db_path, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="PDF not found")
+    if doc.state != models.DocumentState.INDEX_BUILT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"PDF with doc_id {doc_id} has not finished indexing",
+        )
     doc_source = models.DocSource(
         doc_path=data_root_path / doc_id,
         file_name=doc.doc_name,
@@ -144,7 +151,13 @@ async def chat_with_pdf(
     if len(chat_request.messages) == 0:
         raise HTTPException(status_code=400, detail="No messages provided")
 
-    answer_sources = utils.query_item(doc_source, ai, chat_request.messages[-1].content)
-    answer, source = answer_sources[0]
-    return_content = f"{answer}\n source: {source}"
-    return ChatResponse(content=return_content)
+    try: 
+        answer_sources = utils.query_item(doc_source, ai, chat_request.messages[-1].content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    else:
+        if len(answer_sources) == 0:
+            raise HTTPException(status_code=404, detail="No answer found")
+        answer, source = answer_sources[0]
+        return_content = f"{answer}\n source: {source}"
+        return ChatResponse(content=return_content)
