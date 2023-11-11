@@ -1,25 +1,31 @@
+const host_base = "http://13.212.185.122/"
+// const host_base = "http://localhost:8000/"
+const api_key = 'sk_IzQFuUxkIx'
+
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    const fileInput = document.getElementById('file');
-    const file = fileInput.files[0];
-    uploadFile(file).then(response => {
-        if (response.ok) {
-            listDocuments();
-        } else {
-            alert('Upload failed');
-        }
+    const files = document.getElementById('file').files;
+    const promises = [];
+
+    for (let i = 0; i < files.length; i++) {
+        promises.push(uploadFile(files[i]));
+    }
+
+    Promise.all(promises).then(() => {
+        listDocuments(); // Refresh the document list after all uploads are complete
     }).catch(error => {
         console.error('Error:', error);
-        alert('Upload failed with an error');
+        alert('Some or all files failed to upload');
     });
 });
+
 
 async function uploadFile(file) {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await fetch('http://localhost:8000/v1/sources/add-file', {
+    const response = await fetch(host_base + 'v1/sources/add-file', {
         method: 'POST',
-        headers: { 'x-api-key': 'sk_IzQFuUxkIx' },
+        headers: { 'x-api-key': api_key },
         body: formData
     });
     return response;
@@ -27,11 +33,17 @@ async function uploadFile(file) {
 
 let currentDocuments = []; // Global variable to store the documents
 
+// Call listDocuments when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    listDocuments();
+});
+
+
 
 async function listDocuments() {
-    const response = await fetch('http://localhost:8000/v1/uploaded?page=1&page_size=10', {
+    const response = await fetch(host_base + 'v1/uploaded?page=1&page_size=10', {
         method: 'GET',
-        headers: { 'x-api-key': 'sk_IzQFuUxkIx' }
+        headers: { 'x-api-key': api_key }
     });
     const data = await response.json();
 
@@ -56,6 +68,7 @@ function updateDocumentTable(documents) {
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">State</th>
                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">`;
@@ -72,11 +85,33 @@ function updateDocumentTable(documents) {
                 <td class="px-6 py-4 whitespace-nowrap">${formattedSize}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${doc.state}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${formattedDate}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <button onclick="deleteDocument('${doc.doc_id}')" class="bg-red-300 hover:bg-red-500 text-white font-bold py-1 px-2 rounded">Delete</button>
+                </td>
             </tr>`;
     });
 
     tableHtml += `</tbody></table>`;
     document.getElementById('documentTable').innerHTML = tableHtml;
+}
+
+async function deleteDocument(docId) {
+    const response = await fetch(host_base + 'v1/sources/delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': api_key
+        },
+        body: JSON.stringify({ sources: [docId] })
+    });
+
+    if (response.ok) {
+        // Remove the document from currentDocuments and update the table
+        currentDocuments = currentDocuments.filter(doc => doc.doc_id !== docId);
+        updateDocumentTable(currentDocuments);
+    } else {
+        alert('Failed to delete the document');
+    }
 }
 
 function formatFileSize(size) {
@@ -91,7 +126,7 @@ function formatFileSize(size) {
 
 function formatDate(timestamp) {
     const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString();
+    return date.toLocaleDateString() + '<br>' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function wrapText(text, maxLineLength) {

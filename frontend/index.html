@@ -7,22 +7,23 @@
 </head>
 <body class="bg-gray-200">
     <div class="container mx-auto p-8">
+        <h1 class="text-4xl font-bold text-slate-600 mb-6">CapGo Docs Upload</h1>
         <form id="uploadForm" class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2" for="file">
-                    Choose a file to upload
+                    Choose files to upload
                 </label>
-                <input type="file" id="file" name="file" class="shadow border rounded py-2 px-3 text-gray-700">
+                <input type="file" id="file" name="file" multiple class="shadow border rounded py-2 px-3 text-gray-700">
             </div>
-            <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            <button type="submit" class="shadow-md bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                 Upload
             </button>
         </form>
-        <div id="documentTable" class="mt-8"></div>
-        <button id="downloadCsvBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+        <div id="documentTable" class="mt-8 shadow-md mb-4"></div>
+        <button id="downloadCsvBtn" class="shadow-md bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
             Download CSV
         </button>
-        <button id="copyIdsBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        <button id="copyIdsBtn" class="shadow-md bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
             Copy IDs
         </button>
     </div>
