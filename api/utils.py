@@ -136,10 +136,5 @@ def query_item(doc_source: DocSource, ai: AI, query: str) -> [(str, str)]:
     context = "".join(topk_content)
     ai_answer = ai.ask1(get_prompt(context, query))
     answer, sources = parse_ai_answer(ai_answer)
-    # answer_sources = [
-    #     (answer, chunks[chunk_id])
-    #     for chunk_id, answer in parse_ai_answer(ai_answer)
-    #     if chunk_id < len(chunks)
-    # ]
 
     return answer, [chunks[chunk_id] for chunk_id in sources]

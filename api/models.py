@@ -6,7 +6,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from enum import IntEnum
 import logging
-from typing import Optional
+from typing import List, Optional, Tuple
 from config import data_file_name, index_file_name, block_size
 
 logger = logging.getLogger(__name__)
@@ -18,13 +18,23 @@ class DocumentState(IntEnum):
     PROCESSED = 2
     INDEX_BUILT = 3
 
+class DocRow(BaseModel):
+    doc_id: str
+    doc_name: str
+    doc_type: str
+    file_size: int
+    state: str
+    create_at: int
 
 class DocumentExistsExcpetion(Exception):
     """Exception raised when attempting to insert a document that already exists."""
 
     pass
 
+class FailedToListDocuments(Exception):
+    """Exception raised when attempting to list documents."""
 
+    pass
 
 
 @dataclass
@@ -95,6 +105,27 @@ class Doc(BaseModel):
             raise DocumentExistsExcpetion(
                 f"The document with ID {self.doc_id} already exists."
             ) from e
+    
+    def get_doc_row(self) -> DocRow:
+        if self.state == DocumentState.DEFAULT:
+            state_info = "Uploading..."
+        elif self.state == DocumentState.UPLOADED:
+            state_info = "Processing..."
+        elif self.state == DocumentState.PROCESSED:
+            state_info = "Indexing..."
+        elif self.state == DocumentState.INDEX_BUILT:
+            state_info = "Ready"
+        else:
+            state_info = "Unknown"
+
+        return DocRow(
+            doc_id=self.doc_id,
+            doc_name=self.doc_name,
+            doc_type=self.doc_type,
+            file_size=self.file_size,
+            state=state_info,
+            create_at=self.create_at)
+
 
     @classmethod
     def exists_with_doc_id(cls, db_path: Path, doc_id: str) -> bool:
@@ -166,3 +197,38 @@ class Doc(BaseModel):
             query = "DELETE FROM docs WHERE doc_id=?"
             cursor.execute(query, (doc_id,))
             conn.commit()
+    
+    @classmethod
+    def get_documents(cls, db_path: Path, page: int, page_size: int) -> Tuple[List['Doc'], int]:
+        offset = (page - 1) * page_size
+        documents = []
+        total = 0
+
+        try:
+            with sqlite3.connect(db_path) as conn:
+                # Count total documents
+                total = conn.execute("SELECT COUNT(*) FROM docs").fetchone()[0]
+
+                # Retrieve documents with pagination
+                rows = conn.execute(
+                    "SELECT uid, doc_id, doc_name, doc_type, size, state, create_at, update_at FROM docs ORDER BY create_at DESC LIMIT ? OFFSET ?",
+                    (page_size, offset)
+                ).fetchall()
+
+                for row in rows:
+                    documents.append(
+                        Doc(
+                            uid=row[0],
+                            doc_id=row[1],
+                            doc_name=row[2],
+                            doc_type=row[3],
+                            file_size=row[4],
+                            state=row[5],
+                            create_at=row[6],
+                            update_at=row[7],
+                        )
+                    )
+        except sqlite3.Error as e:
+            raise FailedToListDocuments("Failed to list documents.") from e
+
+        return documents, total

@@ -1,6 +1,7 @@
 import hashlib
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, UploadFile, File, Header, BackgroundTasks
+from fastapi import FastAPI, HTTPException, UploadFile, File, Header, BackgroundTasks, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from uuid import uuid4
 import calendar
@@ -18,6 +19,21 @@ logging.basicConfig(level=logging.INFO)
 
 ai = AI()
 app = FastAPI()
+
+# List of allowed origins
+origins = [
+    "http://13.212.185.122",
+    "http://localhost:8001"
+]
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 
 # Define Pydantic models for the API
@@ -45,6 +61,12 @@ class DeleteRequest(BaseModel):
 
 class DeleteResponse(BaseModel):
     detail: str
+
+class PaginatedDocumentsResponse(BaseModel):
+    documents: List[models.DocRow]
+    total: int
+    page: int
+    page_size: int
 
 
 @app.post("/v1/sources/add-file", response_model=AddFileResponse)
@@ -163,3 +185,20 @@ async def chat_with_pdf(
         source = '\n   '.join([f"{i}. {s}" for i, s in enumerate(sources, start=1)])
         return_content = f"{answer}\n\n sources: {source}"
         return ChatResponse(content=return_content)
+
+@app.get("/v1/uploaded", response_model=PaginatedDocumentsResponse)
+async def read_documents(
+    page: int = Query(1, gt=0),
+    page_size: int = Query(10, gt=0)
+):
+    try:
+        documents, total = models.Doc.get_documents(db_path, page, page_size)
+        doc_rows = [doc.get_doc_row() for doc in documents]
+        return PaginatedDocumentsResponse(
+            documents=doc_rows,
+            total=total,
+            page=page,
+            page_size=page_size
+        )
+    except models.FailedToListDocuments as e:
+        raise HTTPException(status_code=500, detail=str(e))
