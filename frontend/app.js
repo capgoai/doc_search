@@ -1,6 +1,5 @@
-const host_base = "http://13.212.185.122/"
-// const host_base = "http://localhost:8000/"
-const api_key = 'sk_IzQFuUxkIx'
+const host_base = "http://localhost:8000/"
+const api_key = 'sk_'
 
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
     e.preventDefault();
