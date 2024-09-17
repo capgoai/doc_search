@@ -22,7 +22,6 @@ app = FastAPI()
 
 # List of allowed origins
 origins = [
-    "http://13.212.185.122",
     "http://localhost:8001"
 ]
 
